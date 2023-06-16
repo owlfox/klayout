@@ -38,6 +38,90 @@
 #include "tlUnitTest.h"
 #include "tlStream.h"
 
+#include <taskflow/taskflow.hpp>
+
+TEST(991_taskflow_compare)
+{
+  db::Layout ly;
+  {
+    std::string fn (tl::testdata ());
+    tl::InputStream stream ("../../test_case/decred_controller.gds.gz");
+    db::Reader reader (stream);
+    reader.read (ly);
+  }
+
+
+  
+  db::cell_index_type top_cell_index = *ly.begin_top_down ();
+  db::Cell &top_cell = ly.cell (top_cell_index);
+  //m1 = polygons(68, 20)
+  // via = polygons(68, 44)
+  // m2 = polygons(69, 20)
+  // diff = polygons(65, 20)
+  // poly = polygons(66, 20)
+  unsigned int lm1  = ly.get_layer (db::LayerProperties (68, 20));
+  unsigned int lvia = ly.get_layer (db::LayerProperties (68, 44));
+  unsigned int lm2  = ly.get_layer (db::LayerProperties (69, 20));
+  unsigned int ldiff= ly.get_layer (db::LayerProperties (65, 20));
+  unsigned int lpoly= ly.get_layer (db::LayerProperties (66, 20));
+
+  db::Region all_diff (db::RecursiveShapeIterator (ly, ly.cell (top_cell_index), ldiff));
+  db::Region all_poly (db::RecursiveShapeIterator (ly, ly.cell (top_cell_index), lpoly));
+  db::Region all_m1 (db::RecursiveShapeIterator (ly, ly.cell (top_cell_index), lm1));
+  db::Region all_via (db::RecursiveShapeIterator (ly, ly.cell (top_cell_index), lvia));
+  db::Region l1 = all_m1 & all_poly;
+  db::Region l2 = all_m1 & all_diff;
+  db::Region l3 = all_poly & all_via;
+  db::Region l4 = all_m1 & all_via;
+  EXPECT_EQ(1, 0);
+}
+
+//m1 = polygons(68, 20)
+// via = polygons(68, 44)
+// m2 = polygons(69, 20)
+// via = polygons(68, 44)
+// diff = polygons(65, 20)
+// poly = polygons(66, 20)
+TEST(990_taskflow)
+{
+  db::Layout ly;
+  {
+    std::string fn (tl::testdata ());
+    tl::InputStream stream ("../../test_case/decred_controller.gds.gz");
+    db::Reader reader (stream);
+    reader.read (ly);
+  }
+  tf::Executor executor;
+  tf::Taskflow taskflow("simple");
+
+  
+  db::cell_index_type top_cell_index = *ly.begin_top_down ();
+  db::Cell &top_cell = ly.cell (top_cell_index);
+  unsigned int lm1  = ly.get_layer (db::LayerProperties (68, 20));
+  unsigned int lvia = ly.get_layer (db::LayerProperties (68, 44));
+  unsigned int lm2  = ly.get_layer (db::LayerProperties (69, 20));
+  unsigned int ldiff= ly.get_layer (db::LayerProperties (65, 20));
+  unsigned int lpoly= ly.get_layer (db::LayerProperties (66, 20));
+
+  db::Region all_diff (db::RecursiveShapeIterator (ly, ly.cell (top_cell_index), ldiff));
+  db::Region all_poly (db::RecursiveShapeIterator (ly, ly.cell (top_cell_index), lpoly));
+  db::Region all_m1 (db::RecursiveShapeIterator (ly, ly.cell (top_cell_index), lm1));
+  db::Region all_via (db::RecursiveShapeIterator (ly, ly.cell (top_cell_index), lvia));
+  db::Region m1_and_via, l1, l2, l3, l4, gate;
+
+  auto [A, B, C, D] = taskflow.emplace(
+    [&l1, &all_m1, &all_poly]() { l1 = all_m1 & all_poly; std::cout << "TaskA\n"; },
+    [&l2, &all_m1, &all_diff]() { l2 = all_m1 & all_diff; std::cout << "TaskB\n"; },
+    [&l3, &all_via, &all_poly]() { l3 = all_poly & all_via;  std::cout << "TaskC\n"; },
+    [&l4, &all_m1, &all_via]() { l4 = all_m1 & all_via; std::cout << "TaskD\n"; }
+  );
+  
+  executor.run(taskflow).wait();
+
+  EXPECT_EQ(1, 0);
+}
+
+
 TEST(1_Basic)
 {
   db::Layout ly;

@@ -655,6 +655,8 @@ qmake_options=(
   KLAYOUT_VERSION="$KLAYOUT_VERSION"
   KLAYOUT_VERSION_DATE="$KLAYOUT_VERSION_DATE"
   KLAYOUT_VERSION_REV="$KLAYOUT_VERSION_REV"
+  INCLUDEPATH="$CURR_DIR/../taskflow"
+  CONFIG+="c++1z"
 )
 
 # NOTE: qmake does not like include paths which clash with paths built into the compiler
